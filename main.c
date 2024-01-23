@@ -1,264 +1,70 @@
 
+
 #include <ti/devices/msp432p4xx/inc/msp.h>
 #include <ti/devices/msp432p4xx/driverlib/driverlib.h>
 #include <ti/grlib/grlib.h>
 #include "LcdDriver/Crystalfontz128x128_ST7735.h"
 #include <stdio.h>
 
-#define ARM_MATH_CM4
-
-#include <arm_math.h>
-#include <arm_const_structs.h>
-
-#define TEST_LENGTH_SAMPLES 512
-#define SAMPLE_LENGTH 512
-
-/* ------------------------------------------------------------------
- * Global variables for FFT Bin Example
- * ------------------------------------------------------------------- */
-uint32_t fftSize = SAMPLE_LENGTH;
-uint32_t ifftFlag = 0;
-uint32_t doBitReverse = 1;
-volatile arm_status status;
-
-/* Graphic library context */
-Graphics_Context g_sContext;
-
-#define SMCLK_FREQUENCY     48000000
-#define SAMPLE_FREQUENCY    8000
-
-#define LED_1 BIT4  // Port 2.4
-#define LED_2 BIT5  // Port 2.5
-#define LED_3 BIT6
 
 
-/* DMA Control Table */
-#if defined(__TI_COMPILER_VERSION__)
-#pragma DATA_ALIGN(MSP_EXP432P401RLP_DMAControlTable, 1024)
-#elif defined(__IAR_SYSTEMS_ICC__)
-#pragma data_alignment=1024
-#elif defined(__GNUC__)
-__attribute__ ((aligned (1024)))
-#elif defined(__CC_ARM)
-__align(1024)
-#endif
-static DMA_ControlTable MSP_EXP432P401RLP_DMAControlTable[32];
-
-/* FFT data/processing buffers*/
-float hann[SAMPLE_LENGTH];
-int16_t data_array1[SAMPLE_LENGTH];
-int16_t data_array2[SAMPLE_LENGTH];
-int16_t data_input[SAMPLE_LENGTH * 2];
-int16_t data_output[SAMPLE_LENGTH];
-
-volatile int switch_data = 0;
-
-uint32_t color = 0;
-
-/* Timer_A PWM Configuration Parameter */
-Timer_A_PWMConfig pwmConfig =
+void main(void)
 {
-    TIMER_A_CLOCKSOURCE_SMCLK,
-    TIMER_A_CLOCKSOURCE_DIVIDER_1,
-    (SMCLK_FREQUENCY / SAMPLE_FREQUENCY),
-    TIMER_A_CAPTURECOMPARE_REGISTER_1,
-    TIMER_A_OUTPUTMODE_SET_RESET,
-    (SMCLK_FREQUENCY / SAMPLE_FREQUENCY) / 2
-};
+    int i;
 
-int main(void)
-{
-    // Configuration des broches de sortie pour les LEDs
-        P2->DIR |= LED_1 | LED_2 | LED_3;
+    // Stop watchdog timer
+    WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;
 
-    /* Halting WDT and disabling master interrupts */
-    MAP_WDT_A_holdTimer();
-    MAP_Interrupt_disableMaster();
+    // Configuration de la broche P2.5  et P2.4 en tant que sorties
+    P2->DIR |= BIT5;
+    P2->DIR |= BIT4;
+    P2->DIR |= BIT6;
 
-    /* Set the core voltage level to VCORE1 */
-    MAP_PCM_setCoreVoltageLevel(PCM_VCORE1);
+    // Configuration de la broche P2.5 et P2.4 pour la fonction alternative 2 (Timer_A0)
+    P2->SEL0 |= BIT5; P2->SEL1 &= ~BIT5;
+    P2->SEL0 |= BIT4; P2->SEL1 &= ~BIT4;
+    P2->SEL0 |= BIT6; P2->SEL1 &= ~BIT6;
 
-    /* Set 2 flash wait states for Flash bank 0 and 1*/
-    MAP_FlashCtl_setWaitState(FLASH_BANK0, 2);
-    MAP_FlashCtl_setWaitState(FLASH_BANK1, 2);
+    // Configuration du Timer_A0 pour la modulation de largeur d'impulsion (PWM)
+    TIMER_A0->CTL = TIMER_A_CTL_SSEL__SMCLK |  // Utiliser SMCLK comme source d'horloge
+                    TIMER_A_CTL_MC__UP |       // Mode de compteur ascendante
+                    TIMER_A_CTL_CLR;           // Effacer le compteur
 
-    /* Initializes Clock System */
-    MAP_CS_setDCOCenteredFrequency(CS_DCO_FREQUENCY_48);
-    MAP_CS_initClockSignal(CS_MCLK, CS_DCOCLK_SELECT, CS_CLOCK_DIVIDER_1);
-    MAP_CS_initClockSignal(CS_HSMCLK, CS_DCOCLK_SELECT, CS_CLOCK_DIVIDER_1);
-    MAP_CS_initClockSignal(CS_SMCLK, CS_DCOCLK_SELECT, CS_CLOCK_DIVIDER_1);
-    MAP_CS_initClockSignal(CS_ACLK, CS_REFOCLK_SELECT, CS_CLOCK_DIVIDER_1);
+    // Configuration du canal CCR2 du Timer_A0 pour la sortie PWM
+    TIMER_A0->CCR[0] = 1000 - 1;                // Période du signal PWM (1000 cycles)
+    // Canal CCR2 -> (TA0.2)
+    TIMER_A0->CCR[2] = 500;  // Canal CCR1     // Valeur du compteur pour contrôler le rapport cyclique (50% initial)
+    TIMER_A0->CCTL[2] = TIMER_A_CCTLN_OUTMOD_7; // Mode de sortie PWM
+    // Canal CCR1 -> (TA0.1)
+    TIMER_A0->CCR[1] = 500;                      // Valeur du compteur pour contrôler le rapport cyclique (50% initial)
+    TIMER_A0->CCTL[1] = TIMER_A_CCTLN_OUTMOD_7; // Mode de sortie PWM
+    // Canal CCR2 -> (TA0.3)
+        TIMER_A0->CCR[3] = 500;  // Canal CCR1     // Valeur du compteur pour contrôler le rapport cyclique (50% initial)
+        TIMER_A0->CCTL[3] = TIMER_A_CCTLN_OUTMOD_7; // Mode de sortie PWM
 
-
-
-    // Initialize Hann Window
-    int n;
-    for(n = 0; n < SAMPLE_LENGTH; n++)
+    // Boucle infinie
+    while (1)
     {
-        hann[n] = 0.5f - 0.5f * cosf((2 * PI * n) / (SAMPLE_LENGTH - 1));
-    }
-
-    /* Configuring Timer_A to have a period of approximately 500ms and
-     * an initial duty cycle of 10% of that (3200 ticks)  */
-    Timer_A_generatePWM(TIMER_A0_BASE, &pwmConfig);
-
-    /* Initializing ADC (MCLK/1/1) */
-    ADC14_enableModule();
-    ADC14_initModule(ADC_CLOCKSOURCE_MCLK, ADC_PREDIVIDER_1, ADC_DIVIDER_1, 0);
-
-    ADC14_setSampleHoldTrigger(ADC_TRIGGER_SOURCE1, false);
-
-    /* Configuring GPIOs (4.3 A10) */
-    GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN3,
-                                               GPIO_TERTIARY_MODULE_FUNCTION);
-
-    /* Configuring ADC Memory */
-    ADC14_configureSingleSampleMode(ADC_MEM0, true);
-    ADC14_configureConversionMemory(ADC_MEM0, ADC_VREFPOS_AVCC_VREFNEG_VSS,
-                                    ADC_INPUT_A10, false);
-
-    /* Set ADC result format to signed binary */
-    ADC14_setResultFormat(ADC_SIGNED_BINARY);
-
-    /* Configuring DMA module */
-    DMA_enableModule();
-    DMA_setControlBase(MSP_EXP432P401RLP_DMAControlTable);
-
-    DMA_disableChannelAttribute(DMA_CH7_ADC14,
-                                UDMA_ATTR_ALTSELECT | UDMA_ATTR_USEBURST |
-                                UDMA_ATTR_HIGH_PRIORITY |
-                                UDMA_ATTR_REQMASK);
-
-    /* Setting Control Indexes. In this case we will set the source of the
-     * DMA transfer to ADC14 Memory 0
-     *  and the destination to the
-     * destination data array. */
-    DMA_setChannelControl(
-        UDMA_PRI_SELECT | DMA_CH7_ADC14,
-        UDMA_SIZE_16 | UDMA_SRC_INC_NONE |
-        UDMA_DST_INC_16 | UDMA_ARB_1);
-    DMA_setChannelTransfer(UDMA_PRI_SELECT | DMA_CH7_ADC14,
-                               UDMA_MODE_PINGPONG, (void*) &ADC14->MEM[0],
-                               data_array1, SAMPLE_LENGTH);
-
-    DMA_setChannelControl(
-        UDMA_ALT_SELECT | DMA_CH7_ADC14,
-        UDMA_SIZE_16 | UDMA_SRC_INC_NONE |
-        UDMA_DST_INC_16 | UDMA_ARB_1);
-    DMA_setChannelTransfer(UDMA_ALT_SELECT | DMA_CH7_ADC14,
-                               UDMA_MODE_PINGPONG, (void*) &ADC14->MEM[0],
-                               data_array2, SAMPLE_LENGTH);
-
-    /* Assigning/Enabling Interrupts */
-    DMA_assignInterrupt(DMA_INT1, 7);
-    Interrupt_enableInterrupt(INT_DMA_INT1);
-    DMA_assignChannel(DMA_CH7_ADC14);
-    DMA_clearInterruptFlag(7);
-    Interrupt_enableMaster();
-
-    /* Now that the DMA is primed and setup, enabling the channels. The ADC14
-     * hardware should take over and transfer/receive all bytes */
-    DMA_enableChannel(7);
-    ADC14_enableConversion();
-
-    while(1)
-    {
-        PCM_gotoLPM0();
-
-        int i = 0;
-
-        /* Computer real FFT using the completed data buffer */
-        if(switch_data & 1)
+        // Variation de l'intensité lumineuse en modifiant la valeur du rapport cyclique
+        for ( i = 0; i < 1000; ++i)
         {
-            for(i = 0; i < 512; i++)
-            {
-                data_array1[i] = (int16_t)(hann[i] * data_array1[i]);
-            }
-            arm_rfft_instance_q15 instance;
-            status = arm_rfft_init_q15(&instance, fftSize, ifftFlag,
-                                       doBitReverse);
-
-            arm_rfft_q15(&instance, data_array1, data_input);
-        }
-        else
-        {
-            for(i = 0; i < 512; i++)
-            {
-                data_array2[i] = (int16_t)(hann[i] * data_array2[i]);
-            }
-            arm_rfft_instance_q15 instance;
-            status = arm_rfft_init_q15(&instance, fftSize, ifftFlag,
-                                       doBitReverse);
-
-            arm_rfft_q15(&instance, data_array2, data_input);
+            TIMER_A0->CCR[2] = i;
+            TIMER_A0->CCR[1] = i;
+            TIMER_A0->CCR[3] = i;
+            __delay_cycles(1000); // Délai pour observer la variation
         }
 
-        /* Calculate magnitude of FFT complex output */
-
-
-        for(i = 0; i < 1024; i += 2)
-                {
-                    data_output[i /
-                                2] =
-                        (int32_t)(sqrtf((data_input[i] *
-                                         data_input[i]) +
-                                        (data_input[i + 1] * data_input[i + 1])));
-                }
-
-                q15_t maxValue;
-                uint32_t maxIndex = 0;
-
-                arm_max_q15(data_output, fftSize, &maxValue, &maxIndex);
-
-                printf("Max Value: %d, Max Index: %d\n", maxValue, maxIndex);
-
-                // Allumer diffÃ©rentes LEDs en fonction de la frÃ©quence max
-                        if (maxValue >= 0 && maxValue <= 600)
-                        {
-                            P2->OUT = LED_1;  // Allume la LED sur le port 2.4
-                        }
-                        else if (maxValue > 600 && maxValue <= 1200)
-                        {
-                            P2->OUT = LED_2;  // Allume la LED sur le port 2.5
-                        }
-                        else if (maxValue > 1200 && maxValue <= 5000)
-                        {
-                            P2->OUT = LED_3;  // Allume la LED sur le port 2.6
-                        }
-                        else
-                        {
-                            P2->OUT = 0;  // Ã‰teint toutes les LEDs si la frÃ©quence ne correspond Ã  aucune plage spÃ©cifiÃ©e
-                        }
+        // Inversion de la variation de l'intensité lumineuse
+        for ( i = 1000; i > 0; --i)
+        {
+            TIMER_A0->CCR[2] = i;
+            TIMER_A0->CCR[1] = i;
+            TIMER_A0->CCR[3] = i;
+            __delay_cycles(1000); // Délai pour observer la variation
+        }
     }
 }
 
-/* Completion interrupt for ADC14 MEM0 */
-void DMA_INT1_IRQHandler(void)
-{
-    /* Switch between primary and alternate bufferes with DMA's PingPong mode */
-    if(DMA_getChannelAttribute(7) & UDMA_ATTR_ALTSELECT)
-    {
-        DMA_setChannelControl(
-            UDMA_PRI_SELECT | DMA_CH7_ADC14,
-            UDMA_SIZE_16 | UDMA_SRC_INC_NONE |
-            UDMA_DST_INC_16 | UDMA_ARB_1);
-        DMA_setChannelTransfer(UDMA_PRI_SELECT | DMA_CH7_ADC14,
-                               UDMA_MODE_PINGPONG, (void*) &ADC14->MEM[0],
-                               data_array1, SAMPLE_LENGTH);
-        switch_data = 1;
-    }
-    else
-    {
-        DMA_setChannelControl(
-            UDMA_ALT_SELECT | DMA_CH7_ADC14,
-            UDMA_SIZE_16 | UDMA_SRC_INC_NONE |
-            UDMA_DST_INC_16 | UDMA_ARB_1);
-        DMA_setChannelTransfer(UDMA_ALT_SELECT | DMA_CH7_ADC14,
-                               UDMA_MODE_PINGPONG, (void*) &ADC14->MEM[0],
-                               data_array2, SAMPLE_LENGTH);
-        switch_data = 0;
-    }
-}
 
 
 
