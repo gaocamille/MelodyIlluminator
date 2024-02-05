@@ -93,5 +93,8 @@ The PWM configuration for LED control is adjustable based on desired brightness 
 
 **Powerpoint Presentation**
 
+https://docs.google.com/presentation/d/11gHxpk3-geGhoeCDVJ-1NT8zf_D1DbR4idNQLmIGHvU/edit?usp=sharing
 
 **Youtube Video** 
+
+https://youtu.be/ncU5WiL63Xs
