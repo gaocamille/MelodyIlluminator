@@ -89,3 +89,9 @@ Ensure proper scaling of the audio signal to match the ADC input range. <br>
 The FFT computation is optimized for a sample length of 512 samples. <br>
 The PWM configuration for LED control is adjustable based on desired brightness and response.
 
+## Links 
+
+**Powerpoint Presentation**
+
+
+**Youtube Video** 
