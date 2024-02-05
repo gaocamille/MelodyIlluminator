@@ -35,7 +35,7 @@ Ensure all the required libraries are included in your project.
 
 FFT-Based LED Control System Project Layout
 
-├── README.md                 # Project description and usage instructions
+├── README.md                 # Project description and usage instructions <br>
 ├── src                       # Main source code directory
 │   ├── main.c                # Main application source code
 │   ├── fft.c                 # FFT processing routines
