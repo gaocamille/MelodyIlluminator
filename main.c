@@ -2,6 +2,7 @@
 #include <ti/devices/msp432p4xx/driverlib/driverlib.h>
 #include <ti/grlib/grlib.h>
 #include "LcdDriver/Crystalfontz128x128_ST7735.h"
+#include "LcdDriver/HAL_MSP_EXP432P401R_Crystalfontz128x128_ST7735.h"
 #include <stdio.h>
 
 #define ARM_MATH_CM4
@@ -27,7 +28,7 @@ Graphics_Context g_sContext;
 #define SAMPLE_FREQUENCY    8000
 #define AMPLITUDE_MAX 2047
 
-// Définition des indices de fréquence pour les plages
+// DÃ©finition des indices de frÃ©quence pour les plages
 #define LOW_FREQ_START_INDEX  (20 * SAMPLE_LENGTH / SAMPLE_FREQUENCY)
 #define LOW_FREQ_END_INDEX    (700 * SAMPLE_LENGTH / SAMPLE_FREQUENCY)
 #define MID_FREQ_START_INDEX  (700 * SAMPLE_LENGTH / SAMPLE_FREQUENCY)
@@ -81,14 +82,65 @@ Timer_A_PWMConfig pwmConfig =
     (SMCLK_FREQUENCY / SAMPLE_FREQUENCY) / 2
 };
 
-// Définition des états
+// DÃ©finition des Ã©tats
 typedef enum {
     PROGRAM_1,
     PROGRAM_2,
     PROGRAM_3
 } ProgramState;
 
+/* Timer_A Compare Configuration Parameter  (PWM) for buzzer*/
+//Timer_A_CompareModeConfig compareConfig_PWM = {
+        //TIMER_A_CAPTURECOMPARE_REGISTER_4,          // Use CCR3
+        //TIMER_A_CAPTURECOMPARE_INTERRUPT_DISABLE,   // Disable CCR interrupt
+        //TIMER_A_OUTPUTMODE_TOGGLE_SET,              // Toggle output but
+        //10000                                        // 25% Duty Cycle initially
+        //};
 
+/* Timer_A Up Configuration Parameter for buzzer*/
+//const Timer_A_UpModeConfig upConfig = {
+        //TIMER_A_CLOCKSOURCE_SMCLK,                      // SMCLK = 3 MhZ
+        //TIMER_A_CLOCKSOURCE_DIVIDER_12,         // SMCLK/12 = 250 KhZ
+        //20000,                                  // 40 ms tick period
+        //TIMER_A_TAIE_INTERRUPT_DISABLE,         // Disable Timer interrupt
+        //TIMER_A_CCIE_CCR0_INTERRUPT_DISABLE,    // Disable CCR0 interrupt
+        //TIMER_A_DO_CLEAR                        // Clear value
+        //};
+
+//initialize buzzer
+//void _buzzerInit()
+//{
+    /* Configures P2.7 to PM_TA0.4 for using Timer PWM to control the buzzer */
+    //GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P2, GPIO_PIN7,
+    //GPIO_PRIMARY_MODULE_FUNCTION);
+
+    /* Configuring Timer_A0 for Up Mode and starting */
+    //Timer_A_configureUpMode(TIMER_A0_BASE, &upConfig);
+    //Timer_A_startCounter(TIMER_A0_BASE, TIMER_A_UP_MODE);
+
+    /* Initialize compare registers to generate PWM */
+    //Timer_A_initCompare(TIMER_A0_BASE, &compareConfig_PWM); // For P2.7
+//}
+
+
+// Display not working
+//void _graphicsInit()
+//{
+    
+    /* Initializes display */
+    //Crystalfontz128x128_Init();
+
+    /* Set default screen orientation */
+    //Crystalfontz128x128_SetOrientation(LCD_ORIENTATION_UP);
+
+    /* Initializes graphics context */
+    //Graphics_initContext(&g_sContext, &g_sCrystalfontz128x128, &g_sCrystalfontz128x128_funcs);
+    //Graphics_setForegroundColor(&g_sContext, GRAPHICS_COLOR_RED);
+    //Graphics_setBackgroundColor(&g_sContext, GRAPHICS_COLOR_RED);
+    //GrContextFontSet(&g_sContext, &g_sFontFixed6x8);
+    //Graphics_clearDisplay(&g_sContext);
+
+//}
 
 
 volatile ProgramState currentProgram = PROGRAM_1;
@@ -104,6 +156,10 @@ void runProgram1(q15_t maxValue,  uint32_t maxIndex, q15_t lowMaxValue,  q15_t m
                          if (maxValue>1000){
                           // Allumer LED1 pour valeurs trop importantes
                           P2->OUT = LED_1;
+                          //call buzzer
+                          //_buzzerInit();
+                          //text not working because of the display
+                          //Graphics_drawStringCentered(&g_sContext, (int8_t *) "Everything fine!", AUTO_STRING_LENGTH, 64, 30, OPAQUE_TEXT);
                             }
                          else {
 
@@ -113,7 +169,7 @@ void runProgram1(q15_t maxValue,  uint32_t maxIndex, q15_t lowMaxValue,  q15_t m
 
 
                              int i=0;
-                           // Trouver la valeur maximale dans chaque plage de fréquences
+                           // Trouver la valeur maximale dans chaque plage de frÃ©quences
 
 
                                for (i = LOW_FREQ_START_INDEX; i <= LOW_FREQ_END_INDEX; i++) {
@@ -138,7 +194,7 @@ void runProgram1(q15_t maxValue,  uint32_t maxIndex, q15_t lowMaxValue,  q15_t m
                               TIMER_A0->CCR[3] = (dutyCycleLow * TIMER_A0->CCR[0]) / 1000;  // LED_3 (Graves)
 
 
-                               //_delay_cycles(500); // Délai pour observer la variation
+                               //_delay_cycles(500); // DÃ©lai pour observer la variation
 
 
 
@@ -147,7 +203,7 @@ void runProgram1(q15_t maxValue,  uint32_t maxIndex, q15_t lowMaxValue,  q15_t m
 void runProgram2( q15_t maxValue) {
 
 
-    // Allumer différentes LEDs en fonction de la fréquence max
+    // Allumer diffÃ©rentes LEDs en fonction de la frÃ©quence max
                            if (maxValue >= 0 && maxValue <= 600)
                            {
                                P2->OUT = LED_3;  // Allume la LED sur le port 2.4
@@ -159,10 +215,12 @@ void runProgram2( q15_t maxValue) {
                            else if (maxValue > 1200 && maxValue <= 5000)
                            {
                                P2->OUT = LED_1;  // Allume la LED sur le port 2.6
+                               //call buzzer
+                               //_buzzerInit();
                            }
                            else
                            {
-                               P2->OUT = 0;  // Éteint toutes les LEDs si la fréquence ne correspond à aucune plage spécifiée
+                               P2->OUT = 0;  // Ã‰teint toutes les LEDs si la frÃ©quence ne correspond Ã  aucune plage spÃ©cifiÃ©e
                            }
 
                            printf("Max Value: %d\n", maxValue );
@@ -174,7 +232,7 @@ void runProgram3( uint32_t maxIndex) {
 
 
 
-    /* Contrôle des LEDs basé sur la fréquence */
+    /* ContrÃ´le des LEDs basÃ© sur la frÃ©quence */
 
        float dominantFrequency = (float)maxIndex * SAMPLE_FREQUENCY / fftSize;
 
@@ -187,6 +245,8 @@ void runProgram3( uint32_t maxIndex) {
        } else {
            // Allumer LED1 pour les aigus
            P2->OUT = LED_1;
+           //call buzzer
+           //_buzzerInit();
        }
 
        printf("Max Fr: %f\n",dominantFrequency );
@@ -197,7 +257,7 @@ void runProgram3( uint32_t maxIndex) {
 
 
 void configureLED_P1(){
-    // Éteindre toutes les LEDs
+    // Ã‰teindre toutes les LEDs
          P2->OUT &= ~(LED_1 | LED_2 | LED_3 | LED_4 );
 
           P2->DIR |= BIT5;
@@ -215,7 +275,7 @@ void configureLED_P1(){
 }
 
 void configureLED_P2_P3(){
-    // Éteindre toutes les LEDs
+    // Ã‰teindre toutes les LEDs
        P2->OUT &= ~(LED_1 | LED_2 | LED_3 | LED_4);
 
        // Configurer les broches en mode GPIO standard pour les programmes 2 et 3
@@ -230,9 +290,9 @@ void configureLED_P2_P3(){
 //pour bouton
 
 void PORT1_IRQHandler() {
-    // Vérifiez si le bouton connecté à P1.1 est pressé
-    if (P1->IFG & BIT1) { // BIT1 correspond à la pin P1.1
-        currentProgram = (currentProgram + 1) % 3; // Changez l'état du programme
+    // VÃ©rifiez si le bouton connectÃ© Ã  P1.1 est pressÃ©
+    if (P1->IFG & BIT1) { // BIT1 correspond Ã  la pin P1.1
+        currentProgram = (currentProgram + 1) % 3; // Changez l'Ã©tat du programme
 
         // Changer la configuration des LEDs en fonction du programme actuel
                      if (currentProgram == 0) {
@@ -245,8 +305,8 @@ void PORT1_IRQHandler() {
                          configureLED_P2_P3();
                      }
 
-        // Debounce (si nécessaire) pour éviter les changements d'état multiples dus aux rebonds du bouton
-        // Par exemple, un simple délai:
+        // Debounce (si nÃ©cessaire) pour Ã©viter les changements d'Ã©tat multiples dus aux rebonds du bouton
+        // Par exemple, un simple dÃ©lai:
                      volatile int i = 0;
         for (i = 0; i < 10000; i++);
 
@@ -258,6 +318,8 @@ void PORT1_IRQHandler() {
 
 int main(void)
 {
+    //initialize lcd (not working)
+    //_graphicsInit();
 
     /* set P1.1 as GPIO configuration */
        P1->SEL0 &= ~BIT1;
@@ -285,7 +347,7 @@ int main(void)
             */
 
            // Activer le mode interruption pour P1.1
-           P1->IES |= BIT1;  // Configurer pour déclencher l'interruption sur front descendant
+           P1->IES |= BIT1;  // Configurer pour dÃ©clencher l'interruption sur front descendant
            P1->IFG &= ~BIT1; // Nettoyer le flag d'interruption
            P1->IE |= BIT1;   // Activer l'interruption pour P1.1
 
@@ -299,23 +361,23 @@ int main(void)
 
 
 
-         // Étape 2: Configurer Timer_A0 pour la modulation de largeur d'impulsion (PWM)
+         // Ã‰tape 2: Configurer Timer_A0 pour la modulation de largeur d'impulsion (PWM)
             TIMER_A0->CTL = TIMER_A_CTL_SSEL__SMCLK | // SMCLK comme source d'horloge
-                            TIMER_A_CTL_MC__UP |      // Mode de comptage en montée
+                            TIMER_A_CTL_MC__UP |      // Mode de comptage en montÃ©e
                             TIMER_A_CTL_CLR;          // Effacer le Timer
 
-            TIMER_A0->CCR[0] = 1000 - 1; // Période du PWM (définir en fonction de la fréquence souhaitée)
+            TIMER_A0->CCR[0] = 1000 - 1; // PÃ©riode du PWM (dÃ©finir en fonction de la frÃ©quence souhaitÃ©e)
 
             // Configurer les canaux pour la sortie PWM
-            // Pour P2.4 (LED connectée à CCR[1])
+            // Pour P2.4 (LED connectÃ©e Ã  CCR[1])
            // TIMER_A0->CCTL[1] = TIMER_A_CCTLN_OUTMOD_7; // Mode de sortie Reset/Set pour PWM
            // TIMER_A0->CCR[1] = 500; // Valeur initiale du rapport cyclique (50%)
 
-            // Pour P2.5 (LED connectée à CCR[2])
+            // Pour P2.5 (LED connectÃ©e Ã  CCR[2])
             TIMER_A0->CCTL[2] = TIMER_A_CCTLN_OUTMOD_7; // Mode de sortie Reset/Set pour PWM
             TIMER_A0->CCR[2] = 500; // Valeur initiale du rapport cyclique (50%)
 
-            // Pour P2.6 (LED connectée à CCR[3])
+            // Pour P2.6 (LED connectÃ©e Ã  CCR[3])
             TIMER_A0->CCTL[3] = TIMER_A_CCTLN_OUTMOD_7; // Mode de sortie Reset/Set pour PWM
             TIMER_A0->CCR[3] = 500; // Valeur initiale du rapport cyclique (50%)
 
