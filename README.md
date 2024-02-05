@@ -36,26 +36,26 @@ Ensure all the required libraries are included in your project.
 FFT-Based LED Control System Project Layout
 
 ├── README.md                 # Project description and usage instructions <br>
-├── src                       # Main source code directory
-│   ├── main.c                # Main application source code
-│   ├── fft.c                 # FFT processing routines
-│   └── led_control.c         # LED control algorithms
-├── include                   # Header files
-│   ├── fft.h                 # Header for FFT processing
-│   └── led_control.h         # Header for LED control functions
-├── lib                       # External libraries
-│   ├── CMSIS                 # ARM CMSIS library
-│   └── DriverLib             # TI DriverLib for MSP432P4XX
-├── drivers                   # Device specific drivers
-│   └── LcdDriver             # LCD driver for Crystalfontz128x128_ST7735
-├── tests                     # Test code for the application
-│   ├── test_fft.c            # Tests for FFT functionalities
-│   └── test_led_control.c    # Tests for LED control logic
-├── tools                     # Tools and utilities
-│   └── setup                 # Setup scripts and configuration files
-├── Dockerfile                # Dockerfile for setting up the development environment
-└── docs                      # Documentation
-    └── API                   # API documentation and usage examples
+├── src                       # Main source code directory <br>
+│   ├── main.c                # Main application source code <br>
+│   ├── fft.c                 # FFT processing routines <br>
+│   └── led_control.c         # LED control algorithms <br>
+├── include                   # Header files <br>
+│   ├── fft.h                 # Header for FFT processing <br>
+│   └── led_control.h         # Header for LED control functions <br>
+├── lib                       # External libraries <br>
+│   ├── CMSIS                 # ARM CMSIS library <br>
+│   └── DriverLib             # TI DriverLib for MSP432P4XX <br>
+├── drivers                   # Device specific drivers <br>
+│   └── LcdDriver             # LCD driver for Crystalfontz128x128_ST7735 <br>
+├── tests                     # Test code for the application <br>
+│   ├── test_fft.c            # Tests for FFT functionalities <br>
+│   └── test_led_control.c    # Tests for LED control logic <br>
+├── tools                     # Tools and utilities <br>
+│   └── setup                 # Setup scripts and configuration files <br>
+├── Dockerfile                # Dockerfile for setting up the development environment <br>
+└── docs                      # Documentation <br>
+    └── API                   # API documentation and usage examples <br>
 
 ## Building the Project
 
