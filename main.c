@@ -3,6 +3,8 @@
 #include <ti/grlib/grlib.h>
 #include "LcdDriver/Crystalfontz128x128_ST7735.h"
 #include "LcdDriver/HAL_MSP_EXP432P401R_Crystalfontz128x128_ST7735.h"
+#include "HAL_I2C.h"
+#include "HAL_TMP006.h"
 #include <stdio.h>
 
 #define ARM_MATH_CM4
@@ -20,6 +22,10 @@ uint32_t fftSize = SAMPLE_LENGTH;
 uint32_t ifftFlag = 0;
 uint32_t doBitReverse = 1;
 volatile arm_status status;
+
+/* Variable for storing temperature value returned from TMP006 */
+float temp;
+
 
 /* Graphic library context */
 Graphics_Context g_sContext;
@@ -123,24 +129,63 @@ typedef enum {
 //}
 
 
-// Display not working
-//void _graphicsInit()
-//{
-    
+// Display
+void _graphicsInit()
+{
+
     /* Initializes display */
-    //Crystalfontz128x128_Init();
+    Crystalfontz128x128_Init();
 
     /* Set default screen orientation */
-    //Crystalfontz128x128_SetOrientation(LCD_ORIENTATION_UP);
+    Crystalfontz128x128_SetOrientation(LCD_ORIENTATION_UP);
 
     /* Initializes graphics context */
-    //Graphics_initContext(&g_sContext, &g_sCrystalfontz128x128, &g_sCrystalfontz128x128_funcs);
-    //Graphics_setForegroundColor(&g_sContext, GRAPHICS_COLOR_RED);
-    //Graphics_setBackgroundColor(&g_sContext, GRAPHICS_COLOR_RED);
-    //GrContextFontSet(&g_sContext, &g_sFontFixed6x8);
-    //Graphics_clearDisplay(&g_sContext);
+    Graphics_initContext(&g_sContext, &g_sCrystalfontz128x128, &g_sCrystalfontz128x128_funcs);
+    Graphics_setForegroundColor(&g_sContext, GRAPHICS_COLOR_WHITE);
+    Graphics_setBackgroundColor(&g_sContext, GRAPHICS_COLOR_BLUE);
+    GrContextFontSet(&g_sContext, &g_sFontFixed6x8);
+    Graphics_clearDisplay(&g_sContext);
 
-//}
+}
+
+void _graphicsInit1()
+{
+    Graphics_setForegroundColor(&g_sContext, GRAPHICS_COLOR_WHITE);
+    Graphics_setBackgroundColor(&g_sContext, GRAPHICS_COLOR_BLUE);
+    GrContextFontSet(&g_sContext, &g_sFontFixed6x8);
+    Graphics_clearDisplay(&g_sContext);
+
+}
+
+void _graphicsInit2()
+{
+    Graphics_setForegroundColor(&g_sContext, GRAPHICS_COLOR_WHITE);
+    Graphics_setBackgroundColor(&g_sContext, GRAPHICS_COLOR_PURPLE);
+    GrContextFontSet(&g_sContext, &g_sFontFixed6x8);
+    Graphics_clearDisplay(&g_sContext);
+
+}
+
+void _graphicsInit3()
+{
+    Graphics_setForegroundColor(&g_sContext, GRAPHICS_COLOR_WHITE);
+    Graphics_setBackgroundColor(&g_sContext, GRAPHICS_COLOR_RED);
+    GrContextFontSet(&g_sContext, &g_sFontFixed6x8);
+    Graphics_clearDisplay(&g_sContext);
+
+}
+
+void _temperatureSensorInit()
+{
+    /* Temperature Sensor initialization */
+    /* Initialize I2C communication */
+    Init_I2C_GPIO();
+    I2C_init();
+    /* Initialize TMP006 temperature sensor */
+    TMP006_init();
+    //__delay_cycles(100000);
+
+}
 
 
 volatile ProgramState currentProgram = PROGRAM_1;
@@ -152,14 +197,29 @@ void runProgram1(q15_t maxValue,  uint32_t maxIndex, q15_t lowMaxValue,  q15_t m
 
 
 
+
                          arm_max_q15(data_output, fftSize, &maxValue, &maxIndex);
                          if (maxValue>1000){
                           // Allumer LED1 pour valeurs trop importantes
                           P2->OUT = LED_1;
-                          //call buzzer
-                          //_buzzerInit();
-                          //text not working because of the display
-                          //Graphics_drawStringCentered(&g_sContext, (int8_t *) "Everything fine!", AUTO_STRING_LENGTH, 64, 30, OPAQUE_TEXT);
+
+                          //draw lines
+                          Graphics_drawLine(&g_sContext, 0, 0, 65, 80);
+                          Graphics_drawLine(&g_sContext, 0, 80, 65, 0);
+                          Graphics_drawLine(&g_sContext, 32.5, 0, 32.5, 80);
+                          Graphics_drawLine(&g_sContext, 0, 40, 65, 40);
+
+                          Graphics_drawLine(&g_sContext, 0, 0, 0, 80);
+                          Graphics_drawLine(&g_sContext, 0, 0, 65, 0);
+                          Graphics_drawLine(&g_sContext, 65, 0, 65, 80);
+                          Graphics_drawLine(&g_sContext, 0, 80, 65, 80);
+
+                          Graphics_drawLine(&g_sContext, 16.25, 0, 16.25, 80);
+                          Graphics_drawLine(&g_sContext, 0, 20, 65, 20);
+                          Graphics_drawLine(&g_sContext, 48.75, 0, 48.75, 80);
+                          Graphics_drawLine(&g_sContext, 0, 60, 65, 60);
+
+
                             }
                          else {
 
@@ -180,8 +240,36 @@ void runProgram1(q15_t maxValue,  uint32_t maxIndex, q15_t lowMaxValue,  q15_t m
                                }
 
 
+                               //change lcd and write
+                               _graphicsInit1();
+
+                               /* Obtain temperature value from TMP006 in fahreneit, convert to celsius and write on the display*/
+                               temp =TMP006_getTemp();
+                               temp = (temp - 32) * 5 / 9;
+                               char string[10];
+                               sprintf(string, "%f", temp);
+                               Graphics_drawString(&g_sContext, (int8_t *) "Temp (°C):", AUTO_STRING_LENGTH, 70, 10, OPAQUE_TEXT);
+                               Graphics_drawString(&g_sContext, (int8_t *) string, AUTO_STRING_LENGTH, 92, 20, OPAQUE_TEXT);
+
                                //printf("Max low Value: %d, Max mid Value: %d, Max high Value: %d\n", lowMaxValue,midMaxValue,highMaxValue);
-                              printf("Max low Value: %d, Max mid Value: %d\n", lowMaxValue,midMaxValue);
+                               printf("Max low Value: %d, Max mid Value: %d\n", lowMaxValue,midMaxValue);
+                               char string3[2];
+                               char string4[2];
+                               sprintf(string3, "%d", lowMaxValue);
+                               sprintf(string4, "%d", midMaxValue);
+                               Graphics_drawString(&g_sContext, (int8_t *) "Low: ", AUTO_STRING_LENGTH, 10, 100, OPAQUE_TEXT);
+                               Graphics_drawString(&g_sContext, (int8_t *) string3, AUTO_STRING_LENGTH, 35, 100, OPAQUE_TEXT);
+                               Graphics_drawString(&g_sContext, (int8_t *) "Mid: ", AUTO_STRING_LENGTH, 60, 100, OPAQUE_TEXT);
+                               Graphics_drawString(&g_sContext, (int8_t *) string4, AUTO_STRING_LENGTH, 85, 100, OPAQUE_TEXT);
+
+
+                               //draw lines
+                               Graphics_drawLine(&g_sContext, 0, 0, 65, 80);
+                               Graphics_drawLine(&g_sContext, 0, 80, 65, 0);
+                               Graphics_drawLine(&g_sContext, 32.5, 0, 32.5, 80);
+                               Graphics_drawLine(&g_sContext, 0, 40, 65, 40);
+
+
 
                                // Calculer le rapport cyclique pour chaque LED
                                uint32_t dutyCycleLow = (lowMaxValue >= 600) ? 1000 : (lowMaxValue * 1000) / 600;
@@ -207,16 +295,42 @@ void runProgram2( q15_t maxValue) {
                            if (maxValue >= 0 && maxValue <= 600)
                            {
                                P2->OUT = LED_3;  // Allume la LED sur le port 2.4
+
+                               //draw lines
+                               Graphics_drawLine(&g_sContext, 0, 0, 65, 80);
+                               Graphics_drawLine(&g_sContext, 0, 80, 65, 0);
+
                            }
                            else if (maxValue > 600 && maxValue <= 1200)
                            {
                                P2->OUT = LED_2;  // Allume la LED sur le port 2.5
+
+                               //draw lines
+                               Graphics_drawLine(&g_sContext, 0, 0, 65, 80);
+                               Graphics_drawLine(&g_sContext, 0, 80, 65, 0);
+                               Graphics_drawLine(&g_sContext, 32.5, 0, 32.5, 80);
+                               Graphics_drawLine(&g_sContext, 0, 40, 65, 40);
+
                            }
                            else if (maxValue > 1200 && maxValue <= 5000)
                            {
                                P2->OUT = LED_1;  // Allume la LED sur le port 2.6
-                               //call buzzer
-                               //_buzzerInit();
+
+                               //draw lines
+                               Graphics_drawLine(&g_sContext, 0, 0, 65, 80);
+                               Graphics_drawLine(&g_sContext, 0, 80, 65, 0);
+                               Graphics_drawLine(&g_sContext, 32.5, 0, 32.5, 80);
+                               Graphics_drawLine(&g_sContext, 0, 40, 65, 40);
+
+                               Graphics_drawLine(&g_sContext, 0, 0, 0, 80);
+                               Graphics_drawLine(&g_sContext, 0, 0, 65, 0);
+                               Graphics_drawLine(&g_sContext, 65, 0, 65, 80);
+                               Graphics_drawLine(&g_sContext, 0, 80, 65, 80);
+
+                               Graphics_drawLine(&g_sContext, 16.25, 0, 16.25, 80);
+                               Graphics_drawLine(&g_sContext, 0, 20, 65, 20);
+                               Graphics_drawLine(&g_sContext, 48.75, 0, 48.75, 80);
+                               Graphics_drawLine(&g_sContext, 0, 60, 65, 60);
                            }
                            else
                            {
@@ -224,6 +338,22 @@ void runProgram2( q15_t maxValue) {
                            }
 
                            printf("Max Value: %d\n", maxValue );
+
+                           //change lcd and write
+                           _graphicsInit2();
+
+                           char string3[2];
+                           sprintf(string3, "%d", maxValue);
+                           Graphics_drawString(&g_sContext, (int8_t *) "Max Val: ", AUTO_STRING_LENGTH, 30, 100, OPAQUE_TEXT);
+                           Graphics_drawString(&g_sContext, (int8_t *) string3, AUTO_STRING_LENGTH, 80, 100, OPAQUE_TEXT);
+
+                           /* Obtain temperature value from TMP006 in fahreneit, convert to celsius and write on the display*/
+                           temp =TMP006_getTemp();
+                           temp = (temp - 32) * 5 / 9;
+                           char string[10];
+                           sprintf(string, "%f", temp);
+                           Graphics_drawString(&g_sContext, (int8_t *) "Temp (°C):", AUTO_STRING_LENGTH, 70, 10, OPAQUE_TEXT);
+                           Graphics_drawString(&g_sContext, (int8_t *) string, AUTO_STRING_LENGTH, 92, 20, OPAQUE_TEXT);
 
 }
 
@@ -239,17 +369,60 @@ void runProgram3( uint32_t maxIndex) {
        if (dominantFrequency < 200.0) {
            // Allumer LED3 pour les graves
            P2->OUT = LED_3;
+
+           //draw lines
+           Graphics_drawLine(&g_sContext, 0, 0, 65, 80);
+           Graphics_drawLine(&g_sContext, 0, 80, 65, 0);
+
        } else if (dominantFrequency >= 200.0 && dominantFrequency < 2000.0) {
            // Allumer LED2 pour les mediums
            P2->OUT = LED_2;
+
+           //draw lines
+           Graphics_drawLine(&g_sContext, 0, 0, 65, 80);
+           Graphics_drawLine(&g_sContext, 0, 80, 65, 0);
+           Graphics_drawLine(&g_sContext, 32.5, 0, 32.5, 80);
+           Graphics_drawLine(&g_sContext, 0, 40, 65, 40);
+
        } else {
            // Allumer LED1 pour les aigus
            P2->OUT = LED_1;
-           //call buzzer
-           //_buzzerInit();
+
+           //draw lines
+           Graphics_drawLine(&g_sContext, 0, 0, 65, 80);
+           Graphics_drawLine(&g_sContext, 0, 80, 65, 0);
+           Graphics_drawLine(&g_sContext, 32.5, 0, 32.5, 80);
+           Graphics_drawLine(&g_sContext, 0, 40, 65, 40);
+
+           Graphics_drawLine(&g_sContext, 0, 0, 0, 80);
+           Graphics_drawLine(&g_sContext, 0, 0, 65, 0);
+           Graphics_drawLine(&g_sContext, 65, 0, 65, 80);
+           Graphics_drawLine(&g_sContext, 0, 80, 65, 80);
+
+           Graphics_drawLine(&g_sContext, 16.25, 0, 16.25, 80);
+           Graphics_drawLine(&g_sContext, 0, 20, 65, 20);
+           Graphics_drawLine(&g_sContext, 48.75, 0, 48.75, 80);
+           Graphics_drawLine(&g_sContext, 0, 60, 65, 60);
+
        }
 
        printf("Max Fr: %f\n",dominantFrequency );
+
+       //change lcd and write
+       _graphicsInit3();
+
+       char string3[10];
+       sprintf(string3, "%f", dominantFrequency);
+       Graphics_drawString(&g_sContext, (int8_t *) "Max Freq: ", AUTO_STRING_LENGTH, 10, 100, OPAQUE_TEXT);
+       Graphics_drawString(&g_sContext, (int8_t *) string3, AUTO_STRING_LENGTH, 65, 100, OPAQUE_TEXT);
+
+       /* Obtain temperature value from TMP006 in fahreneit, convert to celsius and write on the display*/
+       temp =TMP006_getTemp();
+       temp = (temp - 32) * 5 / 9;
+       char string[10];
+       sprintf(string, "%f", temp);
+       Graphics_drawString(&g_sContext, (int8_t *) "Temp (°C):", AUTO_STRING_LENGTH, 70, 10, OPAQUE_TEXT);
+       Graphics_drawString(&g_sContext, (int8_t *) string, AUTO_STRING_LENGTH, 92, 20, OPAQUE_TEXT);
 }
 
 
@@ -318,8 +491,11 @@ void PORT1_IRQHandler() {
 
 int main(void)
 {
-    //initialize lcd (not working)
-    //_graphicsInit();
+        //initialize lcd and write
+        _graphicsInit();
+        //initialize temperature
+        _temperatureSensorInit();
+
 
     /* set P1.1 as GPIO configuration */
        P1->SEL0 &= ~BIT1;
@@ -473,6 +649,7 @@ int main(void)
     ADC14_enableConversion();
 
 
+
     while(1)
     {
         PCM_gotoLPM0();
@@ -567,4 +744,3 @@ void DMA_INT1_IRQHandler(void)
         switch_data = 0;
     }
  }
-
